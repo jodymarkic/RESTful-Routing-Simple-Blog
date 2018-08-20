@@ -1,0 +1,139 @@
+//JS LIBRARY CONFIGS
+
+//require .js frameworks & libraries
+var express = require('express'),
+methodOverride = require('method-override'),
+expressSanitizer = require('express-sanitizer'),
+bodyParser  = require('body-parser'),
+mongoose    = require('mongoose'),
+app         = express();
+
+//connect & create a collection in mongodb for our app.
+mongoose.connect('mongodb://localhost/restful_blog_app');
+
+//set our view engine to use .ejs files
+app.set('view engine', 'ejs');
+
+//can't remember what this does.
+app.use(express.static("public"));
+
+//set JSON string returned to be JavaScript objects, easier to retrieve data.
+app.use(bodyParser.urlencoded({extended: true}));
+
+//sanitize user input of script tags.
+app.use(expressSanitizer());
+
+app.use(methodOverride("_method"));
+
+//MONGOOSE/MODEL CONFIG
+
+//define a database schema for the restful_blog_app collection
+var blogSchema = new mongoose.Schema({
+   title: String,
+   image: String,
+   body: String,
+   created: { type: Date, default: Date.now } //gives a default if not set.
+});
+
+ //connect our schema and collection.
+var Blog = mongoose.model("Blog", blogSchema);
+
+// Blog.create({
+//     title: "Test Blog",
+//     image: "https://images.unsplash.com/photo-1504226646080-dbdec09a1fac?ixlib=rb-0.3.5&ixid=eyJhcHBfaWQiOjEyMDd9&s=d6149692d77f1c5454a95e437fb1bd20&auto=format&fit=crop&w=1050&q=80",
+//     body: "HELLO THIS IS A BLOG POST!"
+// });
+
+
+//RESTFUL ROUTES
+app.get("/", function(req, res){
+   res.redirect("/blogs"); 
+});
+
+
+//INDEX ROUTE
+app.get("/blogs", function(req, res){
+    
+    Blog.find({}, function(err, blogs){
+       if (err) {
+           console.log(err);
+       } else {
+           res.render("index", { blogs: blogs });
+           
+       }
+    });
+});
+
+//NEW ROUTE
+app.get("/blogs/new", function(req, res){
+   //do something 
+   res.render("new");
+   
+});
+
+//CREATE ROUTE
+app.post("/blogs", function(req, res){
+    //create blog
+    //sanitize user input
+    res.body.blog.body = req.sanitize(res.body.blog.body);
+    Blog.create(req.body.blog, function(err, newBlog){
+        if(err) {
+           res.render("new");
+        } else {
+           //redirect back to index.
+           res.redirect("/blogs");
+        }
+    });
+});
+
+app.get("/blogs/:id", function(req, res){
+   Blog.findById(req.params.id, function(err, foundBlog){
+        if(err) {
+            res.redirect("/blogs");
+        } else {
+            res.render("show", {blog: foundBlog});
+        }
+   });
+});
+
+//EDIT ROUTE
+app.get("/blogs/:id/edit", function(req, res){
+    Blog.findById(req.params.id, function(err, foundBlog){
+        if(err) {
+            res.redirect("/blogs")
+        } else {
+            res.render("edit", {blog: foundBlog});
+        }
+    });
+});
+
+//UPDATE ROUTE
+app.put("/blogs/:id", function(req, res){
+    res.body.blog.body = req.sanitize(res.body.blog.body);
+    Blog.findByIdAndUpdate(req.params.id, req.body.blog, function(err, updatedBlog){
+        if(err) {
+            console.log(err);
+            res.redirect("/blogs");
+        } else {
+            res.redirect("/blogs/" + req.params.id);
+        }
+    });
+});
+
+//DELETE ROUTE
+app.delete("/blogs/:id", function(req, res){
+   //destroy blog
+   Blog.findByIdAndRemove(req.params.id, function(err){
+       //redirect somewhere
+      if(err) {
+          res.redirect("/blogs");
+      } else {
+          res.redirect("/blogs");
+      }
+   });
+});
+
+//setup a server listener to deal with incoming requests.
+app.listen(process.env.PORT, process.env.IP, function(){
+    console.log("Server Started!");
+});
